@@ -1,0 +1,13 @@
+{
+  "name": "claude-session-board",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A kanban board of your Claude Code desktop sessions, one swimlane per project",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Session Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0e11;
+    --bg-2: #13151a;
+    --panel: #181b21;
+    --card: #1d2027;
+    --card-hover: #232731;
+    --line: #2a2e38;
+    --text: #e8e9ed;
+    --muted: #8b90a0;
+    --faint: #5c6170;
+    --working: #e07a52;
+    --needs: #f0b429;
+    --ci: #f2555a;
+    --review: #4c8dff;
+    --ready: #3fbf7f;
+    --done: #9b7cf0;
+    --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 8px 24px -12px rgb(0 0 0 / .6);
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f5f6f8; --bg-2: #eceef2; --panel: #ffffff; --card: #ffffff; --card-hover: #f8f9fc;
+      --line: #e1e4ea; --text: #16181d; --muted: #5d6475; --faint: #9aa0ad;
+      --shadow: 0 1px 2px rgb(16 24 40 / .06), 0 8px 24px -14px rgb(16 24 40 / .25);
+      color-scheme: light;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  button, input, select { font: inherit; color: inherit; }
+
+  /* ------------------------------------------------------------ top bar */
+  header {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar { display: flex; align-items: center; gap: 16px; padding: 14px 24px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+  .logo {
+    width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--working), #c2410c); color: white; font-weight: 700;
+    box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--working) 70%, transparent);
+  }
+  .brand h1 { font-size: 17px; margin: 0; font-weight: 700; letter-spacing: -.01em; }
+  .brand .sub { color: var(--muted); font-size: 12px; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .search {
+    display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 7px 10px; min-width: 240px;
+  }
+  .search input { border: 0; outline: 0; background: transparent; width: 100%; }
+  .search kbd { font: 11px 'JetBrains Mono', monospace; color: var(--faint); border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; }
+  .seg { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+  .seg button { border: 0; background: transparent; padding: 4px 10px; border-radius: 7px; color: var(--muted); cursor: pointer; font-size: 12.5px; font-weight: 500; }
+  .seg button.on { background: var(--card-hover); color: var(--text); box-shadow: var(--shadow); }
+  .refresh {
+    display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--panel);
+    border-radius: 10px; padding: 7px 12px; cursor: pointer; color: var(--muted); font-size: 12.5px;
+  }
+  .refresh:hover { color: var(--text); }
+  .refresh .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ready); }
+  .refresh.loading .dot { background: var(--needs); animation: blink 1s infinite; }
+
+  /* ------------------------------------------------------- stat columns */
+  .cols { display: grid; grid-template-columns: 180px repeat(6, minmax(0, 1fr)); gap: 12px; padding: 0 24px 14px; }
+  .stat {
+    position: relative; border-radius: 12px; padding: 10px 12px; cursor: pointer; overflow: hidden;
+    background: color-mix(in srgb, var(--c) 9%, var(--panel));
+    border: 1px solid color-mix(in srgb, var(--c) 28%, var(--line));
+    transition: transform .15s, border-color .15s, opacity .15s;
+  }
+  .stat:hover { transform: translateY(-1px); border-color: var(--c); }
+  .stat.dim { opacity: .35; }
+  .stat .label { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--c); }
+  .stat .label i { width: 8px; height: 8px; border-radius: 3px; background: var(--c); }
+  .stat .n { font-size: 26px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .stat::after {
+    content: ''; position: absolute; inset: auto 0 0 0; height: 3px;
+    background: linear-gradient(90deg, var(--c), transparent);
+  }
+  .lane-gutter-head { align-self: end; color: var(--faint); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding-bottom: 6px; }
+
+  /* -------------------------------------------------------------- lanes */
+  main { padding: 18px 24px 60px; }
+  .lane { display: grid; grid-template-columns: 180px repeat(6, minmax(0, 1fr)); gap: 12px; padding: 14px 0; border-top: 1px dashed var(--line); }
+  .lane:first-child { border-top: 0; }
+  .lane-head { position: sticky; top: 150px; align-self: start; cursor: pointer; user-select: none; }
+  .lane-head .name { font-weight: 700; font-size: 14.5px; letter-spacing: -.01em; word-break: break-word; display: flex; gap: 6px; align-items: baseline; }
+  .lane-head .chev { color: var(--faint); font-size: 11px; transition: transform .15s; display: inline-block; }
+  .lane.collapsed .chev { transform: rotate(-90deg); }
+  .lane-head .meta { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .lane-head .bars { display: flex; gap: 2px; margin-top: 8px; height: 4px; border-radius: 4px; overflow: hidden; background: var(--bg-2); }
+  .lane-head .bars span { background: var(--c); }
+  .lane.collapsed .cell { display: none; }
+  .lane.collapsed .collapsed-summary { display: flex; }
+  .collapsed-summary { display: none; grid-column: 2 / -1; gap: 8px; align-items: center; color: var(--muted); font-size: 12.5px; }
+  .cell { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+  /* -------------------------------------------------------------- cards */
+  .card {
+    position: relative; display: block; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 11px 12px 10px 14px; box-shadow: var(--shadow); cursor: pointer;
+    transition: transform .12s ease, border-color .12s, background .12s;
+    animation: rise .25s ease both;
+  }
+  .card::before {
+    content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: var(--c);
+  }
+  .card:hover { transform: translateY(-2px); background: var(--card-hover); border-color: color-mix(in srgb, var(--c) 55%, var(--line)); }
+  .card.done { opacity: .62; box-shadow: none; }
+  .card.done:hover { opacity: 1; }
+  .card .t { font-weight: 600; font-size: 13.5px; line-height: 1.35; display: flex; gap: 7px; align-items: flex-start; }
+  .card .t span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .card .s { color: var(--muted); font-size: 12.5px; margin-top: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card .ask {
+    margin-top: 8px; font-size: 12.5px; padding: 7px 9px; border-radius: 8px;
+    background: color-mix(in srgb, var(--needs) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--needs) 30%, transparent);
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .card .ask b { color: var(--needs); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .chip {
+    font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+    color: var(--k); background: color-mix(in srgb, var(--k) 14%, transparent); border: 1px solid color-mix(in srgb, var(--k) 30%, transparent);
+  }
+  .foot { display: flex; align-items: center; gap: 8px; margin-top: 9px; font: 11.5px 'JetBrains Mono', ui-monospace, monospace; color: var(--faint); }
+  .foot .pr { color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+  .foot .pr:hover { color: var(--text); border-color: var(--muted); }
+  .foot .time { margin-left: auto; }
+  .foot .br { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .more { border: 1px dashed var(--line); background: transparent; border-radius: 10px; padding: 6px; color: var(--muted); font-size: 12px; cursor: pointer; }
+  .more:hover { color: var(--text); border-color: var(--muted); }
+
+  .pulse { position: relative; width: 9px; height: 9px; flex: none; margin-top: 5px; }
+  .pulse::before, .pulse::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: var(--working); }
+  .pulse::after { animation: ping 1.5s cubic-bezier(0, 0, .2, 1) infinite; }
+
+  .empty { text-align: center; color: var(--muted); padding: 80px 0; }
+  .error { margin: 18px 24px 0; padding: 10px 14px; border-radius: 10px; color: var(--ci); background: color-mix(in srgb, var(--ci) 10%, transparent); border: 1px solid color-mix(in srgb, var(--ci) 35%, transparent); }
+
+  @keyframes ping { 75%, 100% { transform: scale(2.4); opacity: 0; } }
+  @keyframes blink { 50% { opacity: .3; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(4px); } }
+
+  @media (max-width: 1100px) {
+    .cols, .lane { grid-template-columns: repeat(6, minmax(220px, 1fr)); overflow-x: auto; }
+    .lane-gutter-head { display: none; }
+    .lane-head { grid-column: 1 / -1; position: static; }
+    main, .cols { overflow-x: auto; }
+  }
+  @media (max-width: 640px) {
+    .bar { padding: 12px 16px; }
+    .cols { padding: 0 16px 12px; }
+    main { padding: 12px 16px 40px; }
+    .search { min-width: 0; flex: 1; }
+  }
+
+  /* ------------------------------------------------------------- drawer */
+  .card.selected { border-color: var(--c); background: var(--card-hover); }
+  .scrim { position: fixed; inset: 0; background: rgb(0 0 0 / .35); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 40; }
+  .drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(680px, 100vw); z-index: 50;
+    background: var(--bg-2); border-left: 1px solid var(--line); box-shadow: -20px 0 60px -20px rgb(0 0 0 / .5);
+    display: flex; flex-direction: column; transform: translateX(100%); transition: transform .25s cubic-bezier(.2,.8,.2,1);
+  }
+  body.chat-open .drawer { transform: none; }
+  body.chat-open .scrim { opacity: 1; pointer-events: auto; }
+  .d-head { padding: 16px 18px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .d-top { display: flex; align-items: flex-start; gap: 10px; }
+  .d-title { font-size: 16px; font-weight: 700; letter-spacing: -.01em; flex: 1; line-height: 1.3; }
+  .d-sub { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; color: var(--muted); font-size: 12px; }
+  .icon-btn { border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: 5px 10px; cursor: pointer; color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+  .icon-btn:hover { color: var(--text); border-color: var(--muted); }
+  .icon-btn.primary { background: var(--working); border-color: var(--working); color: white; }
+  .icon-btn.primary:hover { filter: brightness(1.08); color: white; }
+  .d-body { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+  .d-body .older { align-self: center; }
+  .msg { max-width: 92%; font-size: 13.5px; line-height: 1.55; overflow-wrap: anywhere; }
+  .msg.user { align-self: flex-end; background: color-mix(in srgb, var(--review) 16%, var(--card)); border: 1px solid color-mix(in srgb, var(--review) 30%, var(--line)); padding: 9px 12px; border-radius: 14px 14px 4px 14px; white-space: pre-wrap; }
+  .msg.assistant { align-self: flex-start; }
+  .msg.assistant p { margin: 0 0 8px; } .msg.assistant p:last-child { margin: 0; }
+  .msg.assistant ul, .msg.assistant ol { margin: 4px 0 8px; padding-left: 20px; }
+  .msg.assistant h3 { font-size: 13.5px; margin: 10px 0 4px; }
+  .msg code { font: 12px 'JetBrains Mono', monospace; background: var(--card); border: 1px solid var(--line); padding: 0 4px; border-radius: 4px; }
+  .msg pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow-x: auto; margin: 6px 0; }
+  .msg pre code { border: 0; padding: 0; background: none; }
+  .msg a { color: var(--review); text-decoration: underline; text-underline-offset: 2px; }
+  .msg table { border-collapse: collapse; font-size: 12.5px; margin: 6px 0; }
+  .msg td, .msg th { border: 1px solid var(--line); padding: 3px 7px; text-align: left; }
+  .tools { align-self: flex-start; max-width: 92%; font: 11.5px 'JetBrains Mono', monospace; color: var(--faint); }
+  .tools summary { cursor: pointer; list-style: none; padding: 3px 8px; border: 1px dashed var(--line); border-radius: 7px; display: inline-block; }
+  .tools summary:hover { color: var(--muted); }
+  .tools div { padding: 2px 0 2px 10px; border-left: 2px solid var(--line); margin-left: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tools b { color: var(--muted); font-weight: 500; }
+  .typing { align-self: flex-start; display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 12.5px; }
+  .d-foot { border-top: 1px solid var(--line); background: var(--panel); padding: 12px 14px 14px; }
+  .composer { display: flex; gap: 8px; align-items: flex-end; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 8px 8px 12px; }
+  .composer:focus-within { border-color: color-mix(in srgb, var(--working) 60%, var(--line)); }
+  .composer textarea { flex: 1; border: 0; outline: 0; background: transparent; resize: none; min-height: 22px; max-height: 200px; line-height: 1.45; }
+  .composer textarea:disabled { opacity: .5; }
+  .hint { margin-top: 7px; font-size: 11.5px; color: var(--faint); display: flex; justify-content: space-between; gap: 10px; }
+  .hint.err { color: var(--ci); }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand">
+      <div class="logo">✳</div>
+      <div>
+        <h1>Session board</h1>
+        <div class="sub" id="sub">Loading…</div>
+      </div>
+    </div>
+    <div class="controls">
+      <label class="search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:var(--faint)"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" placeholder="Filter by title, ticket, branch, PR" autocomplete="off">
+        <kbd>/</kbd>
+      </label>
+      <div class="seg" id="window">
+        <button data-d="1">24h</button>
+        <button data-d="7">7d</button>
+        <button data-d="14">14d</button>
+        <button data-d="0">All</button>
+      </div>
+      <button class="refresh" id="refresh" title="Refresh (r)"><span class="dot"></span><span id="ago">—</span></button>
+    </div>
+  </div>
+  <div class="cols" id="cols"></div>
+</header>
+<div id="err"></div>
+<main id="board"></main>
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Session chat">
+  <div class="d-head">
+    <div class="d-top">
+      <div class="d-title" id="d-title"></div>
+      <a class="icon-btn" id="d-app" title="Open this session in the Claude app">Open in Claude ↗</a>
+      <button class="icon-btn" id="d-close" title="Close (Esc)">✕</button>
+    </div>
+    <div class="d-sub" id="d-sub"></div>
+  </div>
+  <div class="d-body" id="d-body"></div>
+  <div class="d-foot">
+    <form class="composer" id="composer">
+      <textarea id="d-input" rows="1" placeholder="Reply to this session…"></textarea>
+      <button class="icon-btn primary" id="d-send" type="submit">Send</button>
+    </form>
+    <div class="hint" id="d-hint"><span>⌘↵ to send · runs as a headless turn in the session's own folder</span></div>
+  </div>
+</aside>
+
+<script>
+const COLUMNS = [
+  { id: 'working',   title: 'Working',        c: 'var(--working)' },
+  { id: 'needs-you', title: 'Needs you',      c: 'var(--needs)' },
+  { id: 'ci',        title: 'CI',             c: 'var(--ci)' },
+  { id: 'review',    title: 'In review',      c: 'var(--review)' },
+  { id: 'ready',     title: 'Ready to merge', c: 'var(--ready)' },
+  { id: 'done',      title: 'Done',           c: 'var(--done)' },
+]
+const CHIP = {
+  'CI failing': 'var(--ci)', 'changes requested': 'var(--ci)', interrupted: 'var(--ci)',
+  'CI running': 'var(--needs)', 'ready for review': 'var(--needs)', approved: 'var(--ready)', merged: 'var(--done)',
+  draft: 'var(--muted)', closed: 'var(--muted)', 'CI ?': 'var(--muted)',
+}
+const DONE_SHOWN = 3
+const POLL_MS = 15_000
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('csb:' + k); return v == null ? d : JSON.parse(v) } catch { return d } },
+  set(k, v) { try { localStorage.setItem('csb:' + k, JSON.stringify(v)) } catch {} },
+}
+
+const state = {
+  data: null,
+  q: '',
+  days: store.get('days', 7),
+  hidden: new Set(store.get('hiddenCols', [])),
+  collapsed: new Set(store.get('collapsed', [])),
+  expandedDone: new Set(),
+  loading: false,
+  error: '',
+}
+
+const $ = s => document.querySelector(s)
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
+
+function ago(ms) {
+  if (!ms) return ''
+  const m = Math.round((Date.now() - ms) / 60000)
+  if (m < 1) return 'now'
+  if (m < 60) return m + 'm'
+  const h = Math.round(m / 60)
+  if (h < 24) return h + 'h'
+  return Math.round(h / 24) + 'd'
+}
+
+function visibleCards() {
+  if (!state.data) return []
+  const q = state.q.trim().toLowerCase()
+  const cutoff = state.days ? Date.now() - state.days * 86400000 : 0
+  return state.data.cards.filter(c => {
+    // Open work (running, CI, review, ready) shows however old; idle
+    // "needs you" and done sessions follow the time window.
+    const isOpenWork = !['needs-you', 'done'].includes(c.column)
+    if (cutoff && !isOpenWork && c.lastActivityAt < cutoff) return false
+    if (!q) return true
+    const hay = [c.title, c.project, c.branch, c.pr?.number && '#' + c.pr.number, c.summary, c.needsAction].join(' ').toLowerCase()
+    return hay.includes(q)
+  })
+}
+
+function cardHtml(c, col) {
+  const chips = c.badges.map(b => `<span class="chip" style="--k:${CHIP[b] ?? 'var(--muted)'}">${esc(b)}</span>`).join('')
+  const pr = c.pr?.number
+    ? `<a class="pr" href="${esc(c.pr.url)}" target="_blank" rel="noopener" data-stop title="${esc(c.pr.repo)}${c.pr.isShared ? " (linked, not this session's own PR)" : ""}" style="${c.pr.isShared ? "opacity:.55" : ""}">#${c.pr.number}</a>`
+    : ''
+  const br = !pr && c.branch ? `<span class="br">${esc(c.branch.replace(/^claude\//, ''))}</span>` : ''
+  const ask = c.column === 'needs-you' && c.needsAction
+    ? `<div class="ask"><b>Waiting on you:</b> ${esc(c.needsAction)}</div>` : ''
+  const summary = c.summary && !ask ? `<div class="s">${esc(c.summary)}</div>` : ''
+  return `<div class="card ${col.id === 'done' ? 'done' : ''}" style="--c:${col.c}" data-id="${esc(c.id)}" role="button" tabindex="0" title="Open chat">
+    <div class="t">${c.isRunning ? '<i class="pulse"></i>' : ''}<span>${esc(c.title)}</span></div>
+    ${summary}${ask}
+    ${chips ? `<div class="chips">${chips}</div>` : ''}
+    <div class="foot">${pr}${br}<span class="time">${ago(c.lastActivityAt)}</span></div>
+  </div>`
+}
+
+function render() {
+  const cards = visibleCards()
+  const all = state.data?.cards ?? []
+  const lanes = new Map()
+  for (const c of cards) (lanes.get(c.project) ?? lanes.set(c.project, []).get(c.project)).push(c)
+
+  // Stats header
+  $('#cols').innerHTML = '<div class="lane-gutter-head">Project</div>' + COLUMNS.map(col => {
+    const n = cards.filter(c => c.column === col.id).length
+    return `<div class="stat ${state.hidden.has(col.id) ? 'dim' : ''}" style="--c:${col.c}" data-col="${col.id}" title="Click to show or hide">
+      <div class="label"><i></i>${col.title}</div><div class="n">${n}</div></div>`
+  }).join('')
+
+  const live = cs => cs.filter(c => c.column !== 'done').length
+  const order = [...lanes.entries()].sort(([, a], [, b]) =>
+    (live(b) - live(a)) || (Math.max(...b.map(c => c.lastActivityAt)) - Math.max(...a.map(c => c.lastActivityAt))))
+
+  const running = all.filter(c => c.isRunning).length
+  $('#sub').textContent = state.data
+    ? `${cards.length} of ${all.length} sessions · ${lanes.size} projects${running ? ` · ${running} running` : ''}`
+    : 'Loading…'
+
+  if (state.data && !order.length) {
+    $('#board').innerHTML = `<div class="empty">No sessions match. Try a wider time window.</div>`
+    return
+  }
+
+  $('#board').innerHTML = order.map(([project, cs]) => {
+    const isCollapsed = state.collapsed.has(project)
+    const counts = COLUMNS.map(col => [col, cs.filter(c => c.column === col.id).length])
+    const bars = counts.filter(([, n]) => n).map(([col, n]) => `<span style="--c:${col.c};flex:${n}"></span>`).join('')
+    const cells = COLUMNS.map(col => {
+      if (state.hidden.has(col.id)) return `<div class="cell"></div>`
+      const inCol = cs.filter(c => c.column === col.id).sort((a, b) => b.lastActivityAt - a.lastActivityAt)
+      const key = project
+      const limit = col.id === 'done' && !state.expandedDone.has(key) ? DONE_SHOWN : Infinity
+      const shown = inCol.slice(0, limit)
+      const more = inCol.length - shown.length
+      return `<div class="cell">${shown.map(c => cardHtml(c, col)).join('')}${more > 0 ? `<button class="more" data-more="${esc(key)}">+${more} more</button>` : ''}</div>`
+    }).join('')
+    const summary = counts.filter(([, n]) => n).map(([col, n]) => `<span class="chip" style="--k:${col.c}">${n} ${col.title.toLowerCase()}</span>`).join('')
+    return `<section class="lane ${isCollapsed ? 'collapsed' : ''}">
+      <div class="lane-head" data-lane="${esc(project)}">
+        <div class="name"><span class="chev">▼</span>${esc(project)}</div>
+        <div class="meta">${live(cs)} active · ${cs.length} total</div>
+        <div class="bars">${bars}</div>
+      </div>
+      ${cells}
+      <div class="collapsed-summary">${summary}</div>
+    </section>`
+  }).join('')
+}
+
+function renderStatus() {
+  $('#refresh').classList.toggle('loading', state.loading)
+  $('#ago').textContent = state.loading ? 'Refreshing' : state.data ? 'Updated ' + ago(state.data.generatedAt) : '—'
+  $('#err').innerHTML = state.error ? `<div class="error">Couldn't load sessions: ${esc(state.error)}</div>` : ''
+}
+
+async function load() {
+  if (state.loading) return
+  state.loading = true; renderStatus()
+  try {
+    const res = await fetch('/api/board', { cache: 'no-store' })
+    if (!res.ok) throw new Error(res.status + ' ' + res.statusText)
+    state.data = await res.json()
+    state.error = ''
+    render()
+  } catch (e) {
+    state.error = e.message
+  } finally {
+    state.loading = false; renderStatus()
+  }
+}
+
+// ----------------------------------------------------------------- events
+document.querySelectorAll('#window button').forEach(b => {
+  b.classList.toggle('on', Number(b.dataset.d) === state.days)
+  b.onclick = () => {
+    state.days = Number(b.dataset.d); store.set('days', state.days)
+    document.querySelectorAll('#window button').forEach(x => x.classList.toggle('on', x === b))
+    render()
+  }
+})
+$('#q').oninput = e => { state.q = e.target.value; render() }
+$('#refresh').onclick = load
+$('#cols').onclick = e => {
+  const s = e.target.closest('[data-col]'); if (!s) return
+  const id = s.dataset.col
+  state.hidden.has(id) ? state.hidden.delete(id) : state.hidden.add(id)
+  store.set('hiddenCols', [...state.hidden]); render()
+}
+$('#board').onclick = e => {
+  if (e.target.closest('[data-stop]')) { e.stopPropagation(); return }
+  const lane = e.target.closest('[data-lane]')
+  if (lane) {
+    const p = lane.dataset.lane
+    state.collapsed.has(p) ? state.collapsed.delete(p) : state.collapsed.add(p)
+    store.set('collapsed', [...state.collapsed]); render(); return
+  }
+  const more = e.target.closest('[data-more]')
+  if (more) { state.expandedDone.add(more.dataset.more); render(); return }
+  const card = e.target.closest('[data-id]')
+  if (card) openChat(card.dataset.id)
+}
+$('#board').onkeydown = e => {
+  const card = e.target.closest('[data-id]')
+  if (card && e.key === 'Enter') openChat(card.dataset.id)
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && chat.id && e.target.tagName !== 'INPUT') { closeChat(); return }
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') { if (e.key === 'Escape') e.target.blur(); return }
+  if (e.key === '/') { e.preventDefault(); $('#q').focus() }
+  if (e.key === 'r') load()
+})
+
+// ------------------------------------------------------------------- chat
+const HIDDEN_TOOLS = new Set(['update_plan', 'wrap_up', 'ToolSearch', 'mark_chapter'])
+const chat = { id: null, data: null, timer: null, sending: false, error: '', limit: 150, lastCount: 0 }
+
+function md(text) {
+  const blocks = []
+  let t = text.replace(/```[\w-]*\n?([\s\S]*?)```/g, (_, code) => {
+    blocks.push(`<pre><code>${esc(code.replace(/\n$/, ''))}</code></pre>`)
+    return `\u0000${blocks.length - 1}\u0000`
+  })
+  t = esc(t)
+    .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')
+    .replace(/\[([^\]\n]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, '<code>$1</code>')
+  const out = []
+  let list = null
+  for (const line of t.split('\n')) {
+    const li = line.match(/^\s*(?:[-*]|\d+\.)\s+(.*)/)
+    if (li) { (list ??= []).push(`<li>${li[1]}</li>`); continue }
+    if (list) { out.push(`<ul>${list.join('')}</ul>`); list = null }
+    const h = line.match(/^#{1,4}\s+(.*)/)
+    if (h) out.push(`<h3>${h[1]}</h3>`)
+    else if (/^\|.*\|$/.test(line.trim())) {
+      if (/^\|[\s:|-]+\|$/.test(line.trim())) continue
+      out.push('<table><tr>' + line.trim().slice(1, -1).split('|').map(c => `<td>${c.trim()}</td>`).join('') + '</tr></table>')
+    }
+    else if (line.trim()) out.push(`<p>${line}</p>`)
+  }
+  if (list) out.push(`<ul>${list.join('')}</ul>`)
+  return out.join('').replace(/<\/table><table>/g, '').replace(/\u0000(\d+)\u0000/g, (_, i) => blocks[i])
+}
+
+function cardById(id) { return state.data?.cards.find(c => c.id === id) }
+
+function renderChatHead() {
+  const c = cardById(chat.id)
+  $('#d-title').textContent = c?.title ?? chat.data?.title ?? ''
+  $('#d-app').href = c?.link ?? `claude://claude.ai/epitaxy/${chat.id}`
+  if (!c) { $('#d-sub').innerHTML = ''; return }
+  const col = COLUMNS.find(x => x.id === c.column)
+  $('#d-sub').innerHTML = [
+    `<span class="chip" style="--k:${col.c}">${col.title}</span>`,
+    `<span>${esc(c.project)}</span>`,
+    c.pr?.number ? `<a class="chip" style="--k:var(--muted)" href="${esc(c.pr.url)}" target="_blank" rel="noopener">#${c.pr.number}</a>` : '',
+    c.branch ? `<span style="font-family:'JetBrains Mono',monospace">${esc(c.branch)}</span>` : '',
+    `<span>${ago(c.lastActivityAt)} ago</span>`,
+  ].filter(Boolean).join('<span>·</span>')
+}
+
+function busyReason() {
+  if (chat.sending || chat.data?.job?.isRunning) return 'reply'
+  if (chat.data?.isDesktopRunning) return 'desktop'
+  return ''
+}
+
+function renderChat() {
+  renderChatHead()
+  const body = $('#d-body')
+  const nearBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 120
+  const d = chat.data
+  let html = ''
+  if (!d) html = '<div class="typing">Loading conversation…</div>'
+  else {
+    if (d.total > d.messages.length) html += `<button class="more older" id="d-older">Show earlier messages (${d.total - d.messages.length} more)</button>`
+    if (d.note) html += `<div class="typing">${esc(d.note)}</div>`
+    for (const m of d.messages) {
+      if (m.role === 'user') html += `<div class="msg user">${esc(m.text)}</div>`
+      else if (m.role === 'assistant') html += `<div class="msg assistant">${md(m.text)}</div>`
+      else {
+        const tools = m.tools.filter(t => !HIDDEN_TOOLS.has(t.name))
+        if (!tools.length) continue
+        const first = tools[0]
+        html += `<details class="tools"><summary>⚙ ${tools.length === 1 ? `${esc(first.name)} ${esc(first.detail).slice(0, 70)}` : `${tools.length} tool calls`}</summary>${tools.map(t => `<div><b>${esc(t.name)}</b> ${esc(t.detail)}</div>`).join('')}</details>`
+      }
+    }
+    const busy = busyReason()
+    if (busy) html += `<div class="typing"><i class="pulse"></i>${busy === 'desktop' ? 'Claude is working in the desktop app…' : 'Claude is replying…'}</div>`
+  }
+  body.innerHTML = html
+  const count = d?.messages.length ?? 0
+  if (nearBottom || count !== chat.lastCount) body.scrollTop = body.scrollHeight
+  chat.lastCount = count
+  $('#d-older')?.addEventListener('click', () => { chat.limit += 300; fetchChat() })
+
+  const busy = busyReason()
+  const err = chat.error || d?.job?.error
+  const input = $('#d-input')
+  input.disabled = !!busy
+  $('#d-send').disabled = !!busy
+  input.placeholder = busy === 'desktop' ? 'Claude is working in the desktop app. Reply when it finishes.' : busy ? 'Waiting for the reply…' : 'Reply to this session…'
+  const hint = $('#d-hint')
+  hint.classList.toggle('err', !!err)
+  hint.innerHTML = err
+    ? `<span>${esc(err)}${/authenticat|log ?in|api key/i.test(err) ? ' · run <code>claude auth login</code> in a terminal, then try again' : ''}</span>`
+    : `<span>⌘↵ to send · runs as a headless turn in the session's own folder</span>`
+}
+
+async function fetchChat() {
+  const id = chat.id
+  if (!id) return
+  try {
+    const res = await fetch(`/api/session/${encodeURIComponent(id)}/chat?limit=${chat.limit}`, { cache: 'no-store' })
+    const data = await res.json()
+    if (chat.id !== id) return
+    if (!res.ok) throw new Error(data.error || res.statusText)
+    const wasBusy = chat.data?.job?.isRunning
+    chat.data = data
+    if (wasBusy && !data.job?.isRunning) load()
+  } catch (e) {
+    chat.error = e.message
+  }
+  renderChat()
+  clearTimeout(chat.timer)
+  chat.timer = setTimeout(fetchChat, busyReason() ? 1500 : 8000)
+}
+
+function openChat(id) {
+  if (chat.id !== id) { chat.data = null; chat.error = ''; chat.limit = 150; chat.lastCount = 0 }
+  chat.id = id
+  document.body.classList.add('chat-open')
+  document.querySelectorAll('.card.selected').forEach(n => n.classList.remove('selected'))
+  document.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.classList.add('selected')
+  if (location.hash !== '#s=' + id) history.replaceState(null, '', '#s=' + id)
+  renderChat()
+  fetchChat()
+  setTimeout(() => $('#d-input').focus(), 250)
+}
+
+function closeChat() {
+  chat.id = null
+  clearTimeout(chat.timer)
+  document.body.classList.remove('chat-open')
+  document.querySelectorAll('.card.selected').forEach(n => n.classList.remove('selected'))
+  history.replaceState(null, '', location.pathname)
+}
+
+async function sendChat() {
+  const input = $('#d-input')
+  const text = input.value.trim()
+  if (!text || busyReason() || !chat.id) return
+  chat.sending = true
+  chat.error = ''
+  // Show it straight away; the transcript catches up within a second or two.
+  chat.data?.messages.push({ role: 'user', text })
+  input.value = ''
+  autosize()
+  renderChat()
+  try {
+    const res = await fetch(`/api/session/${encodeURIComponent(chat.id)}/send`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text }),
+    })
+    const out = await res.json()
+    if (!res.ok) { chat.error = out.error || res.statusText; input.value = text }
+    else if (chat.data) chat.data.job = out.job
+  } catch (e) {
+    chat.error = e.message
+    input.value = text
+  } finally {
+    chat.sending = false
+    fetchChat()
+  }
+}
+
+function autosize() {
+  const t = $('#d-input')
+  t.style.height = 'auto'
+  t.style.height = Math.min(t.scrollHeight, 200) + 'px'
+}
+
+$('#d-close').onclick = closeChat
+$('#scrim').onclick = closeChat
+$('#composer').onsubmit = e => { e.preventDefault(); sendChat() }
+$('#d-input').oninput = autosize
+$('#d-input').onkeydown = e => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendChat() }
+  if (e.key === 'Escape') closeChat()
+}
+
+const _render = render
+render = function () {
+  _render()
+  if (chat.id) {
+    document.querySelector(`.card[data-id="${CSS.escape(chat.id)}"]`)?.classList.add('selected')
+    renderChatHead()
+  }
+}
+
+function chatFromHash() {
+  const m = location.hash.match(/^#s=(local_[\w-]+)/)
+  if (m && m[1] !== chat.id) openChat(m[1])
+}
+window.addEventListener('hashchange', chatFromHash)
+load().then(chatFromHash)
+setInterval(load, POLL_MS)
+setInterval(renderStatus, 10_000)
+</script>
+</body>
+</html>
