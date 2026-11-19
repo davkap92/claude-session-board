@@ -13,12 +13,13 @@ const HOST = '127.0.0.1'
 const SESSIONS_DIR =
   process.env.CLAUDE_SESSIONS_DIR ??
   join(homedir(), 'Library/Application Support/Claude/claude-code-sessions')
-const PROJECTS_DIR = join(homedir(), '.claude/projects')
+const PROJECTS_DIR = process.env.CLAUDE_PROJECTS_DIR ?? join(homedir(), '.claude/projects')
 const PUBLIC_DIR = fileURLToPath(new URL('./public/', import.meta.url))
 
 const GH_TTL_MS = 60_000
 const GH_CONCURRENCY = 6
 const CLAUDE_BIN = process.env.CLAUDE_BIN ?? 'claude'
+const GH_BIN = process.env.GH_BIN ?? 'gh'
 const SEND_TIMEOUT_MS = 30 * 60_000
 const PERMISSION_MODES = new Set(['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions'])
 // Give spawned tools the usual user bin folders: a server started from an
@@ -109,7 +110,7 @@ const ghCache = new Map()
 
 function gh(args) {
   return new Promise(resolve => {
-    execFile('gh', args, { timeout: 20_000, env: { ...process.env, PATH: CHILD_PATH } }, (err, stdout) =>
+    execFile(GH_BIN, args, { timeout: 20_000, env: { ...process.env, PATH: CHILD_PATH } }, (err, stdout) =>
       resolve(err ? null : stdout),
     )
   })

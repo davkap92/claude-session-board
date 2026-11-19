@@ -9,6 +9,8 @@ It runs locally, has no dependencies beyond Node, and reads the files the
 desktop app already writes. Nothing leaves your machine except `gh` calls for
 PR status.
 
+![The board: one lane per repo, cards sorted into Working, Needs you, CI, In review, Ready to merge and Done](docs/board.png)
+
 ## What you get
 
 - One swimlane per repo. Sessions in worktrees are grouped with their
@@ -25,6 +27,15 @@ PR status.
 - Filters: search (`/`), a 24h / 7d / 14d / All window, hide a column by
   clicking its total, collapse a lane by clicking its name. `r` refreshes; the
   board also refreshes every 15 seconds.
+
+Click a card to open its chat. You can read the whole turn, with tool calls
+folded away, and reply from the box at the bottom.
+
+![The chat drawer open on a session Claude is working in](docs/chat.png)
+
+It follows your system's light or dark setting.
+
+![The board in dark mode](docs/board-dark.png)
 
 ## Requirements
 
@@ -43,6 +54,10 @@ npm start
 ```
 
 Open http://127.0.0.1:4777.
+
+To try it without your own sessions, `npm run demo` starts a copy on port
+4778 with the made-up tickets from the screenshots above. It writes its data
+to a temp folder and stubs out `gh`, so it touches nothing real.
 
 ### Start on login
 
@@ -120,6 +135,8 @@ Only the board's own page can send replies: the server rejects requests whose
 | `PORT` | `4777` | Port to listen on |
 | `CLAUDE_SESSIONS_DIR` | the desktop app's sessions folder | Read sessions from somewhere else |
 | `CLAUDE_BIN` | `claude` | CLI used for replies |
+| `CLAUDE_PROJECTS_DIR` | `~/.claude/projects` | Where to find transcripts |
+| `GH_BIN` | `gh` | GitHub CLI used for PR status |
 
 ## Caveats
 

@@ -5,7 +5,8 @@
   "description": "A kanban board of your Claude Code desktop sessions, one swimlane per project",
   "type": "module",
   "scripts": {
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "demo": "node scripts/demo.mjs"
   },
   "engines": {
     "node": ">=20"

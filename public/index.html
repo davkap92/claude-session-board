@@ -129,8 +129,8 @@
     margin-top: 8px; font-size: 12.5px; padding: 7px 9px; border-radius: 8px;
     background: color-mix(in srgb, var(--needs) 12%, transparent);
     border: 1px solid color-mix(in srgb, var(--needs) 30%, transparent);
-    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
   }
+  .card .ask span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .card .ask b { color: var(--needs); font-weight: 600; }
   .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
   .chip {
@@ -333,7 +333,7 @@ function cardHtml(c, col) {
     : ''
   const br = !pr && c.branch ? `<span class="br">${esc(c.branch.replace(/^claude\//, ''))}</span>` : ''
   const ask = c.column === 'needs-you' && c.needsAction
-    ? `<div class="ask"><b>Waiting on you:</b> ${esc(c.needsAction)}</div>` : ''
+    ? `<div class="ask"><span><b>Waiting on you:</b> ${esc(c.needsAction)}</span></div>` : ''
   const summary = c.summary && !ask ? `<div class="s">${esc(c.summary)}</div>` : ''
   return `<div class="card ${col.id === 'done' ? 'done' : ''}" style="--c:${col.c}" data-id="${esc(c.id)}" role="button" tabindex="0" title="Open chat">
     <div class="t">${c.isRunning ? '<i class="pulse"></i>' : ''}<span>${esc(c.title)}</span></div>
