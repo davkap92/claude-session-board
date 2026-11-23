@@ -19,7 +19,8 @@
     --faint: #5c6170;
     --working: #e07a52;
     --needs: #f0b429;
-    --ci: #f2555a;
+    --ci: #2bb3c9;
+    --fail: #f2555a;
     --review: #4c8dff;
     --ready: #3fbf7f;
     --done: #9b7cf0;
@@ -84,6 +85,8 @@
   }
   .stat:hover { transform: translateY(-1px); border-color: var(--c); }
   .stat.dim { opacity: .35; }
+  .stat .sub { display: inline-block; margin-left: 10px; font-size: 12px; font-weight: 500; letter-spacing: 0; color: var(--muted); vertical-align: middle; }
+  .stat .sub b { color: var(--fail); font-weight: 600; }
   .stat .label { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--c); }
   .stat .label i { width: 8px; height: 8px; border-radius: 3px; background: var(--c); }
   .stat .n { font-size: 26px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin-top: 2px; }
@@ -150,11 +153,12 @@
   .pulse::after { animation: ping 1.5s cubic-bezier(0, 0, .2, 1) infinite; }
 
   .empty { text-align: center; color: var(--muted); padding: 80px 0; }
-  .error { margin: 18px 24px 0; padding: 10px 14px; border-radius: 10px; color: var(--ci); background: color-mix(in srgb, var(--ci) 10%, transparent); border: 1px solid color-mix(in srgb, var(--ci) 35%, transparent); }
+  .error { margin: 18px 24px 0; padding: 10px 14px; border-radius: 10px; color: var(--fail); background: color-mix(in srgb, var(--fail) 10%, transparent); border: 1px solid color-mix(in srgb, var(--ci) 35%, transparent); }
 
   @keyframes ping { 75%, 100% { transform: scale(2.4); opacity: 0; } }
   @keyframes blink { 50% { opacity: .3; } }
   @keyframes rise { from { opacity: 0; transform: translateY(4px); } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
   @media (max-width: 1100px) {
     .cols, .lane { grid-template-columns: repeat(6, minmax(220px, 1fr)); overflow-x: auto; }
@@ -213,7 +217,7 @@
   .composer textarea { flex: 1; border: 0; outline: 0; background: transparent; resize: none; min-height: 22px; max-height: 200px; line-height: 1.45; }
   .composer textarea:disabled { opacity: .5; }
   .hint { margin-top: 7px; font-size: 11.5px; color: var(--faint); display: flex; justify-content: space-between; gap: 10px; }
-  .hint.err { color: var(--ci); }
+  .hint.err { color: var(--fail); }
 </style>
 </head>
 <body>
@@ -275,8 +279,8 @@ const COLUMNS = [
   { id: 'done',      title: 'Done',           c: 'var(--done)' },
 ]
 const CHIP = {
-  'CI failing': 'var(--ci)', 'changes requested': 'var(--ci)', interrupted: 'var(--ci)',
-  'CI running': 'var(--needs)', 'ready for review': 'var(--needs)', approved: 'var(--ready)', merged: 'var(--done)',
+  'CI failing': 'var(--fail)', 'changes requested': 'var(--fail)', interrupted: 'var(--fail)',
+  'CI running': 'var(--ci)', 'ready for review': 'var(--needs)', approved: 'var(--ready)', merged: 'var(--done)',
   draft: 'var(--muted)', closed: 'var(--muted)', 'CI ?': 'var(--muted)',
 }
 const DONE_SHOWN = 3
@@ -335,7 +339,7 @@ function cardHtml(c, col) {
   const ask = c.column === 'needs-you' && c.needsAction
     ? `<div class="ask"><span><b>Waiting on you:</b> ${esc(c.needsAction)}</span></div>` : ''
   const summary = c.summary && !ask ? `<div class="s">${esc(c.summary)}</div>` : ''
-  return `<div class="card ${col.id === 'done' ? 'done' : ''}" style="--c:${col.c}" data-id="${esc(c.id)}" role="button" tabindex="0" title="Open chat">
+  return `<div class="card ${col.id === 'done' ? 'done' : ''}" style="--c:${c.badges.includes('CI failing') ? 'var(--fail)' : col.c}" data-id="${esc(c.id)}" role="button" tabindex="0" title="Open chat">
     <div class="t">${c.isRunning ? '<i class="pulse"></i>' : ''}<span>${esc(c.title)}</span></div>
     ${summary}${ask}
     ${chips ? `<div class="chips">${chips}</div>` : ''}
@@ -352,8 +356,12 @@ function render() {
   // Stats header
   $('#cols').innerHTML = '<div class="lane-gutter-head">Project</div>' + COLUMNS.map(col => {
     const n = cards.filter(c => c.column === col.id).length
+    const failing = col.id === 'ci' ? cards.filter(c => c.column === 'ci' && c.badges.includes('CI failing')).length : 0
+    const sub = col.id === 'ci' && n
+      ? `<div class="sub">${failing ? `<b>${failing} failing</b>` : ''}${failing && n - failing ? ' · ' : ''}${n - failing ? `${n - failing} running` : ''}</div>`
+      : ''
     return `<div class="stat ${state.hidden.has(col.id) ? 'dim' : ''}" style="--c:${col.c}" data-col="${col.id}" title="Click to show or hide">
-      <div class="label"><i></i>${col.title}</div><div class="n">${n}</div></div>`
+      <div class="label"><i></i>${col.title}</div><div class="n">${n}${sub}</div></div>`
   }).join('')
 
   const live = cs => cs.filter(c => c.column !== 'done').length
