@@ -116,8 +116,10 @@ function gh(args) {
   })
 }
 
+// CANCELLED is left out: a cancelled run is nearly always one a newer push or
+// a concurrency group superseded, not a real failure.
 const FAILED = new Set([
-  'FAILURE', 'ERROR', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED', 'STARTUP_FAILURE',
+  'FAILURE', 'ERROR', 'TIMED_OUT', 'ACTION_REQUIRED', 'STARTUP_FAILURE',
 ])
 
 function ciFrom(rollup) {
