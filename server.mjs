@@ -135,11 +135,30 @@ function ciFrom(rollup) {
   return pending ? 'pending' : 'passing'
 }
 
+const SLACK_PERMALINK = /https:\/\/[\w-]+\.slack\.com\/archives\/\w+\/p\d+[^\s)>\]]*/
+const JIRA_BASE = process.env.JIRA_BASE ?? 'https://lendable-uk.atlassian.net/browse/'
+const JIRA_KEY = new RegExp(`\\b(${process.env.JIRA_PROJECTS ?? 'TOOLS'})-\\d+\\b`, 'i')
+
+function slackFrom(comments) {
+  for (const c of [...(comments ?? [])].reverse()) {
+    if (!/posted for review/i.test(c.body ?? '')) continue
+    const m = c.body.match(SLACK_PERMALINK)
+    if (m) return m[0]
+  }
+}
+
+function jiraFrom(...sources) {
+  for (const t of sources) {
+    const m = t && String(t).match(JIRA_KEY)
+    if (m) return { key: m[0].toUpperCase(), url: JIRA_BASE + m[0].toUpperCase() }
+  }
+}
+
 async function prStatus(url) {
   const hit = ghCache.get(url)
   if (hit && Date.now() - hit.at < GH_TTL_MS) return hit.value
   const out = await gh([
-    'pr', 'view', url, '--json', 'state,isDraft,reviewDecision,statusCheckRollup,title',
+    'pr', 'view', url, '--json', 'state,isDraft,reviewDecision,statusCheckRollup,title,comments,headRefName',
   ])
   let value = { ci: 'unknown' }
   if (out) {
@@ -151,6 +170,8 @@ async function prStatus(url) {
         reviewDecision: pr.reviewDecision || undefined,
         ci: ciFrom(pr.statusCheckRollup),
         title: pr.title,
+        headRefName: pr.headRefName,
+        slack: slackFrom(pr.comments),
       }
     } catch {}
   }
@@ -276,6 +297,8 @@ async function buildBoard() {
         link: `claude://claude.ai/epitaxy/${s.sessionId}`,
         branch: s.branch,
         pr: pr && { number: pr.prNumber, url: pr.url, repo: pr.repo, state: live?.state ?? pr.state, isShared: !!pr.isShared },
+        slack: live?.slack,
+        jira: jiraFrom(s.branch, live?.headRefName, live?.title, s.title),
         needsAction: s.postTurnSummary?.needs_action || '',
         summary: s.postTurnSummary?.status_detail || s.turnWrapUp?.description || '',
         model: s.model,

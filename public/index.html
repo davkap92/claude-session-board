@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Session Board</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231c1b19'/%3E%3Crect x='5' y='6' width='6' height='20' rx='1.5' fill='%23d97757'/%3E%3Crect x='13' y='6' width='6' height='13' rx='1.5' fill='%23f6f5f2'/%3E%3Crect x='21' y='6' width='6' height='8' rx='1.5' fill='%2373a374'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -144,6 +145,14 @@
   .foot .pr { color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
   .foot .pr:hover { color: var(--text); border-color: var(--muted); }
   .foot .time { margin-left: auto; }
+  .links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+  .links a {
+    font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 6px; text-decoration: none;
+    color: var(--text); background: var(--hover); border: 1px solid var(--line);
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .links svg { width: 13px; height: 13px; flex: none; }
+  .links a:hover { border-color: var(--muted); }
   .foot .br { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
   .more { border: 1px dashed var(--line); background: transparent; border-radius: 10px; padding: 6px; color: var(--muted); font-size: 12px; cursor: pointer; }
   .more:hover { color: var(--text); border-color: var(--muted); }
@@ -330,11 +339,23 @@ function visibleCards() {
   })
 }
 
+const ICONS = {
+  github: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>',
+  jira: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#2684FF" d="M11.571 11.513H0a5.218 5.218 0 0 0 5.232 5.215h2.13v2.057A5.215 5.215 0 0 0 12.575 24V12.518a1.005 1.005 0 0 0-1.005-1.005zm5.723-5.756H5.736a5.215 5.215 0 0 0 5.215 5.214h2.129v2.058a5.218 5.218 0 0 0 5.215 5.214V6.758a1.001 1.001 0 0 0-1.001-1.001zM23.013 0H11.455a5.215 5.215 0 0 0 5.215 5.215h2.129v2.057A5.215 5.215 0 0 0 24 12.483V1.005A1.001 1.001 0 0 0 23.013 0Z"/></svg>',
+  slack: '<svg viewBox="0 0 24 24" aria-hidden="true"><g stroke="none"><rect x="9" y="2" width="3" height="8" rx="1.5" fill="#36C5F0"/><rect x="2" y="9" width="5" height="3" rx="1.5" fill="#36C5F0"/><rect x="14" y="9" width="8" height="3" rx="1.5" fill="#2EB67D"/><rect x="14" y="2" width="3" height="5" rx="1.5" fill="#2EB67D"/><rect x="14" y="14" width="3" height="8" rx="1.5" fill="#ECB22E"/><rect x="19" y="14" width="3" height="3" rx="1.5" fill="#ECB22E"/><rect x="2" y="14" width="8" height="3" rx="1.5" fill="#E01E5A"/><rect x="9" y="19" width="3" height="3" rx="1.5" fill="#E01E5A"/></g></svg>',
+}
+
 function cardHtml(c, col) {
   const chips = c.badges.map(b => `<span class="chip" style="--k:${CHIP[b] ?? 'var(--muted)'}">${esc(b)}</span>`).join('')
   const pr = c.pr?.number
     ? `<a class="pr" href="${esc(c.pr.url)}" target="_blank" rel="noopener" data-stop title="${esc(c.pr.repo)}${c.pr.isShared ? " (linked, not this session's own PR)" : ""}" style="${c.pr.isShared ? "opacity:.55" : ""}">#${c.pr.number}</a>`
     : ''
+  const link = (href, icon, label) => href ? `<a href="${esc(href)}" target="_blank" rel="noopener" data-stop>${icon}${label}</a>` : ''
+  const links = [
+    link(c.pr?.url, ICONS.github, 'GitHub PR'),
+    link(c.jira?.url, ICONS.jira, esc(c.jira?.key ?? 'Jira')),
+    link(c.slack, ICONS.slack, 'Slack'),
+  ].join('')
   const br = !pr && c.branch ? `<span class="br">${esc(c.branch.replace(/^claude\//, ''))}</span>` : ''
   const ask = c.column === 'needs-you' && c.needsAction
     ? `<div class="ask"><span><b>Waiting on you:</b> ${esc(c.needsAction)}</span></div>` : ''
@@ -343,6 +364,7 @@ function cardHtml(c, col) {
     <div class="t">${c.isRunning ? '<i class="pulse"></i>' : ''}<span>${esc(c.title)}</span></div>
     ${summary}${ask}
     ${chips ? `<div class="chips">${chips}</div>` : ''}
+    ${links ? `<div class="links">${links}</div>` : ''}
     <div class="foot">${pr}${br}<span class="time">${ago(c.lastActivityAt)}</span></div>
   </div>`
 }
